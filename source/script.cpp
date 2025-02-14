@@ -390,6 +390,11 @@ void Script::DestroyWindows()
 	// The following fixes being unable to paste text copied from an error dialog after the
 	// program exits (if it wasn't already pasted at least once), and may similarly be of
 	// benefit to scripts which directly or indirectly use OLE for clipboard.
+#ifdef _DEBUG
+	// This check appears to be unnecessary in general, but avoids some extraneous debug output.
+	HWND clipboard_owner = GetClipboardOwner(); // This would be an OLE window if OleSetClipboard was used.
+	if (GetWindowThreadProcessId(clipboard_owner, nullptr) == g_MainThreadID && clipboard_owner != g_hWnd)
+#endif
 	OleFlushClipboard();
 
 	// DestroyWindow() will cause MainWindowProc() to immediately receive and process the
