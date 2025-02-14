@@ -370,8 +370,15 @@ Script::Script()
 
 
 
-Script::~Script() // Destructor.
+void Script::DestroyWindows()
 {
+	// This originally just prevented case WM_DESTROY from calling ExitApp(), but is now
+	// also used to prevent DestroyWindows() from being called more than once:
+	g_DestroyWindowCalled = true;
+
+	// The tray icon, menus, hotkeys, clipboard monitoring, etc. can't function without
+	// a window, and might need to be deregistered before the window is destroyed.
+
 	Hotkey::AllDestruct(); // Unregister hooks and hotkeys.
 
 	if (mNIC.hWnd) // Tray icon is installed.
@@ -388,7 +395,6 @@ Script::~Script() // Destructor.
 	// DestroyWindow() will cause MainWindowProc() to immediately receive and process the
 	// WM_DESTROY msg, which should in turn result in any child windows being destroyed
 	// and other cleanup being done:
-	g_DestroyWindowCalled = true;
 	DestroyWindow(g_hWnd);
 
 
@@ -425,6 +431,14 @@ Script::~Script() // Destructor.
 	for (i = 0; i < MAX_TOOLTIPS; ++i)
 		if (g_hWndToolTip[i] && IsWindow(g_hWndToolTip[i]))
 			DestroyWindow(g_hWndToolTip[i]);
+}
+
+
+
+Script::~Script() // Destructor.
+{
+	if (!g_DestroyWindowCalled)
+		DestroyWindows();
 
 	// Close any open sound item to prevent hang-on-exit in certain operating systems or conditions.
 	// If there's any chance that a sound was played and not closed out, or that it is still playing,
@@ -1311,6 +1325,12 @@ void Script::TerminateApp(ExitReasons aExitReason, int aExitCode)
 	// parameter of the WM_QUIT message."  In our case, PostQuitMessage() should announce the same exit code
 	// that we will eventually call exit() with:
 	PostQuitMessage(aExitCode);
+
+	// Windows are destroyed on exit, before the ~Script() destructor is called, to ensure that any
+	// message monitoring callbacks are called while it is still safe to execute script (it may be
+	// unsafe by the time ~Script() is called since other static objects may or may not have been
+	// destructed already).
+	DestroyWindows();
 
 	// I know this isn't the preferred way to exit the program.  However, due to unusual
 	// conditions such as the script having MsgBoxes or other dialogs displayed on the screen
