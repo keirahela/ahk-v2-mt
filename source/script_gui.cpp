@@ -533,14 +533,14 @@ FResult GuiType::Move(optl<int> aX, optl<int> aY, optl<int> aWidth, optl<int> aH
 
 bif_impl void GuiFromHwnd(UINT aHwnd, optl<BOOL> aRecurse, IObject *&aGui)
 {
-	if (aGui = aRecurse.value_or(FALSE) ? GuiType::FindGuiParent((HWND)(UINT_PTR)aHwnd) : GuiType::FindGui((HWND)(UINT_PTR)aHwnd))
+	if (aGui = aRecurse.value_or(FALSE) ? GuiType::FindGuiParent((HWND)(UINT_PTR)aHwnd, true) : GuiType::FindGui((HWND)(UINT_PTR)aHwnd, true))
 		aGui->AddRef();
 }
 
 
 bif_impl void GuiCtrlFromHwnd(UINT aHwnd, IObject *&aGuiCtrl)
 {
-	if (GuiType* gui = GuiType::FindGuiParent((HWND)(UINT_PTR)aHwnd))
+	if (GuiType* gui = GuiType::FindGuiParent((HWND)(UINT_PTR)aHwnd, true))
 		if (aGuiCtrl = gui->FindControl((HWND)(UINT_PTR)aHwnd))
 			aGuiCtrl->AddRef();
 }
@@ -1002,11 +1002,19 @@ FResult GuiControlType::List_Delete(optl<int> aIndex)
 }
 
 
-GuiType *GuiType::FindGui(HWND aHwnd)
+GuiType *GuiType::FindGui(HWND aHwnd, bool aVerifyProcess)
 {
 	// Check that this window is an AutoHotkey Gui.
 	ATOM atom = (ATOM)GetClassLong(aHwnd, GCW_ATOM);
 	if (atom != sGuiWinClass)
+		return NULL;
+
+	// The atom check is exactly equivalent to a case-insensitive class name check, so a PID
+	// check is needed to avoid crashing when aHwnd is a window created by some other script.
+	// aVerifyProcess allows the check to be skipped when caller is certain the window is ours,
+	// which is mainly to reduce inlined code size rather than for performance.
+	DWORD pid = 0;
+	if (aVerifyProcess && (!GetWindowThreadProcessId(aHwnd, &pid) || pid != GetCurrentProcessId()))
 		return NULL;
 
 	// Retrieve the GuiType object associated to it.
@@ -1014,12 +1022,12 @@ GuiType *GuiType::FindGui(HWND aHwnd)
 }
 
 
-GuiType *GuiType::FindGuiParent(HWND aHwnd)
+GuiType *GuiType::FindGuiParent(HWND aHwnd, bool aVerifyProcess)
 // Returns the GuiType of aHwnd or its closest ancestor which is a Gui.
 {
 	for ( ; aHwnd; aHwnd = GetParent(aHwnd))
 	{
-		if (GuiType *gui = FindGui(aHwnd))
+		if (GuiType *gui = FindGui(aHwnd, aVerifyProcess))
 			return gui;
 		if (!(GetWindowLong(aHwnd, GWL_STYLE) & WS_CHILD))
 			break;
