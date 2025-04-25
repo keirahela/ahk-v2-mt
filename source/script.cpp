@@ -4701,10 +4701,10 @@ ResultType Script::ParseAndAddLine(LPTSTR aLineText, ActionTypeType aActionType,
 			}
 			if (*last_char == ')')
 			{
-				// Remove the parentheses (and possible open brace) and trailing space.
+				// Remove the parentheses (and possible open brace) and leading/trailing space.
 				ASSERT(action_args == end_marker);
-				++action_args;
-				last_char = omit_trailing_whitespace(end_marker, last_char - 1);
+				action_args = omit_leading_whitespace(end_marker + 1);
+				last_char = omit_trailing_whitespace(action_args, last_char - 1);
 				last_char[1] = '\0';
 				// Treat this like a function call: all parameters are sub-expressions.
 				all_args_are_expressions = true;
