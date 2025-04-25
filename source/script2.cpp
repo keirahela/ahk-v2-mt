@@ -3273,8 +3273,9 @@ BOOL TokenToBOOL(ExprTokenType &aToken)
 	case SYM_FLOAT:
 		return aToken.value_double != 0.0;
 	case SYM_STRING:
+		// Consider any non-empty string beginning with \0 to be TRUE.
 		return ResultToBOOL(aToken.marker)
-			|| aToken.marker_length && !*aToken.marker; // Consider any non-empty string beginning with \0 to be TRUE.
+			|| aToken.marker_length && !*aToken.marker && aToken.marker_length != -1;
 	default:
 		// The only remaining valid symbol is SYM_OBJECT, which is always TRUE.
 		// Check symbol anyway, in case SYM_MISSING or something else sneaks in.
