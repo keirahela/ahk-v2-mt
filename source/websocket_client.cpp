@@ -5,7 +5,7 @@
 #include <random>
 #include <iomanip>
 
-WebSocketClient::WebSocketClient() : m_socket(INVALID_SOCKET), m_connected(false), m_running(false), m_port(0) {
+WebSocketClient::WebSocketClient() : m_socket(INVALID_SOCKET), m_connected(false), m_running(false), m_port(0), m_secure(false) {
     // Initialize Winsock
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -25,9 +25,14 @@ bool WebSocketClient::parse_url(const std::string& url) {
     std::string u = url;
     m_port = 80;
     m_path = "/";
+    m_secure = false;
 
     if (u.rfind("ws://", 0) == 0) {
         u = u.substr(5);
+    } else if (u.rfind("wss://", 0) == 0) {
+        u = u.substr(6);
+        m_secure = true;
+        m_port = 443;
     }
 
     // Split host[:port] and path
@@ -264,6 +269,15 @@ bool WebSocketClient::connect(const std::string& url) {
         return false;
     }
 
+    if (m_secure) {
+        if (!connect_wss(url))
+            return false;
+        m_connected = true;
+        m_running = true;
+        m_thread = std::thread(&WebSocketClient::receive_loop_wss, this);
+        return true;
+    }
+
     std::cout << "WebSocket: Connecting to " << m_host << ":" << m_port << m_path << std::endl;
 
     if (!resolve_and_connect()) {
@@ -308,17 +322,30 @@ void WebSocketClient::disconnect() {
     if (m_thread.joinable()) {
         m_thread.join();
     }
+
+    if (m_hWebSocket) {
+        WinHttpWebSocketClose(m_hWebSocket, WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, nullptr, 0);
+        WinHttpCloseHandle(m_hWebSocket);
+        m_hWebSocket = nullptr;
+    }
+    if (m_hRequest) { WinHttpCloseHandle(m_hRequest); m_hRequest = nullptr; }
+    if (m_hConnect) { WinHttpCloseHandle(m_hConnect); m_hConnect = nullptr; }
+    if (m_hSession) { WinHttpCloseHandle(m_hSession); m_hSession = nullptr; }
 }
 
 bool WebSocketClient::send_message(const std::string& message) {
     if (!m_connected) {
         return false;
     }
-    
-    std::vector<uint8_t> frame = websocket_frame_encode(message);
-    int result = send(m_socket, reinterpret_cast<const char*>(frame.data()), static_cast<int>(frame.size()), 0);
-    
-    return result != SOCKET_ERROR;
+    if (m_secure && m_hWebSocket) {
+        auto hr = WinHttpWebSocketSend(m_hWebSocket, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE,
+            (PVOID)message.data(), (DWORD)message.size());
+        return hr == S_OK;
+    } else {
+        std::vector<uint8_t> frame = websocket_frame_encode(message);
+        int result = send(m_socket, reinterpret_cast<const char*>(frame.data()), static_cast<int>(frame.size()), 0);
+        return result != SOCKET_ERROR;
+    }
 }
 
 std::string WebSocketClient::receive_message() {
@@ -335,4 +362,80 @@ std::string WebSocketClient::receive_message() {
 
 bool WebSocketClient::is_connected() const {
     return m_connected;
+}
+
+bool WebSocketClient::connect_wss(const std::string& url) {
+    // Prepare Sec-WebSocket-Key
+    std::random_device rd; std::mt19937 gen(rd()); std::uniform_int_distribution<> dis(0,255);
+    std::string rawKey; rawKey.reserve(16);
+    for (int i = 0; i < 16; ++i) rawKey.push_back((char)dis(gen));
+    std::string secKey = base64_encode(rawKey);
+
+#ifdef UNICODE
+    int hlen = MultiByteToWideChar(CP_UTF8, 0, m_host.c_str(), -1, NULL, 0);
+    std::wstring whost; whost.resize(hlen ? hlen - 1 : 0);
+    if (hlen) MultiByteToWideChar(CP_UTF8, 0, m_host.c_str(), -1, &whost[0], hlen);
+    int plen = MultiByteToWideChar(CP_UTF8, 0, m_path.c_str(), -1, NULL, 0);
+    std::wstring wpath; wpath.resize(plen ? plen - 1 : 0);
+    if (plen) MultiByteToWideChar(CP_UTF8, 0, m_path.c_str(), -1, &wpath[0], plen);
+#else
+    std::wstring whost(m_host.begin(), m_host.end());
+    std::wstring wpath(m_path.begin(), m_path.end());
+#endif
+
+    m_hSession = WinHttpOpen(L"AHK-WebSocket/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+        WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    if (!m_hSession) return false;
+
+    m_hConnect = WinHttpConnect(m_hSession, whost.c_str(), (INTERNET_PORT)m_port, 0);
+    if (!m_hConnect) return false;
+
+    DWORD flags = WINHTTP_FLAG_SECURE;
+    m_hRequest = WinHttpOpenRequest(m_hConnect, L"GET", wpath.c_str(), NULL,
+        WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+    if (!m_hRequest) return false;
+
+    // Indicate WebSocket upgrade on this request
+    if (!WinHttpSetOption(m_hRequest, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, NULL, 0))
+        return false;
+
+    std::wostringstream wsHeaders;
+    wsHeaders << L"Connection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\n";
+    // Host header is set by WinHTTP. Add Sec-WebSocket-Key:
+#ifdef UNICODE
+    int klen = MultiByteToWideChar(CP_UTF8, 0, secKey.c_str(), -1, NULL, 0);
+    std::wstring wkey; wkey.resize(klen ? klen - 1 : 0);
+    if (klen) MultiByteToWideChar(CP_UTF8, 0, secKey.c_str(), -1, &wkey[0], klen);
+#else
+    std::wstring wkey(secKey.begin(), secKey.end());
+#endif
+    wsHeaders << L"Sec-WebSocket-Key: " << wkey << L"\r\n";
+
+    std::wstring headers = wsHeaders.str();
+    if (!WinHttpAddRequestHeaders(m_hRequest, headers.c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD))
+        return false;
+
+    if (!WinHttpSendRequest(m_hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+        WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) return false;
+    if (!WinHttpReceiveResponse(m_hRequest, NULL)) return false;
+
+    m_hWebSocket = WinHttpWebSocketCompleteUpgrade(m_hRequest, 0);
+    if (!m_hWebSocket) return false;
+    m_hRequest = nullptr; // Ownership transferred to WebSocket handle
+    return true;
+}
+
+void WebSocketClient::receive_loop_wss() {
+    BYTE buffer[4096];
+    while (m_running && m_connected && m_hWebSocket) {
+        DWORD received = 0; WINHTTP_WEB_SOCKET_BUFFER_TYPE type = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE;
+        HRESULT hr = WinHttpWebSocketReceive(m_hWebSocket, buffer, sizeof(buffer), &received, &type);
+        if (hr != S_OK) { m_connected = false; break; }
+        if (type == WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE) { m_connected = false; break; }
+        if (received) {
+            std::string msg((char*)buffer, (char*)buffer + received);
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_messageQueue.push(msg);
+        }
+    }
 }

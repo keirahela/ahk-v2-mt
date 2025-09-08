@@ -9,8 +9,10 @@
 #include <memory>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <winhttp.h>
 
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "winhttp.lib")
 
 class WebSocketClient {
 private:
@@ -24,6 +26,13 @@ private:
     std::string m_host;
     std::string m_path;
     int m_port;
+    bool m_secure; // wss/https
+
+    // WinHTTP handles for WSS mode
+    HINTERNET m_hSession = nullptr;
+    HINTERNET m_hConnect = nullptr;
+    HINTERNET m_hRequest = nullptr;
+    HINTERNET m_hWebSocket = nullptr;
     
     bool parse_url(const std::string& url);
     bool resolve_and_connect();
@@ -33,6 +42,10 @@ private:
     void receive_loop();
     std::string websocket_frame_decode(const std::vector<uint8_t>& data);
     std::vector<uint8_t> websocket_frame_encode(const std::string& message);
+
+    // WSS (WinHTTP) path
+    bool connect_wss(const std::string& url);
+    void receive_loop_wss();
 
 public:
     WebSocketClient();
