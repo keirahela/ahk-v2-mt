@@ -22,6 +22,8 @@ GNU General Public License for more details.
 #include "os_version.h" // For the global OS_Version object
 
 #include "Debugger.h"
+#include "simple_threading.h"
+#include "websocket_client.h"
 
 // Since at least some of some of these (e.g. g_modifiersLR_logical) should not
 // be kept in the struct since it's not correct to save and restore their
@@ -95,6 +97,10 @@ BOOL g_AllowInterruption = TRUE;  // BOOL vs. bool might improve performance a l
 int g_nLayersNeedingTimer = 0;
 int g_nThreads = 0;
 int g_nPausedThreads = 0;
+
+SimpleThreading g_SimpleThreading;
+
+std::unique_ptr<WebSocketClient> g_WebSocketClient = std::make_unique<WebSocketClient>();
 int g_MaxHistoryKeys = 40;
 DWORD g_InputTimeoutAt = 0;
 

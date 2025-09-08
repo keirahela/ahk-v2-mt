@@ -3220,11 +3220,24 @@ BIF_DECL(BIF_Exp);
 BIF_DECL(BIF_SqrtLogLn);
 BIF_DECL(BIF_MinMax);
 
+
 BIF_DECL(BIF_Trim); // L31: Also handles LTrim and RTrim.
 BIF_DECL(BIF_VerCompare);
 
 BIF_DECL(BIF_Type);
 BIF_DECL(BIF_IsObject);
+
+// Simple threading functions
+BIF_DECL(BIF_HttpRequest);
+BIF_DECL(BIF_ThreadCount);
+BIF_DECL(BIF_ThreadCreate);
+BIF_DECL(BIF_ThreadDestroy);
+BIF_DECL(BIF_ThreadGetVar);
+BIF_DECL(BIF_ThreadSetVar);
+BIF_DECL(BIF_WebSocketConnect);
+BIF_DECL(BIF_WebSocketDisconnect);
+BIF_DECL(BIF_WebSocketReceive);
+BIF_DECL(BIF_WebSocketSend);
 
 
 BIF_DECL(Op_Object);

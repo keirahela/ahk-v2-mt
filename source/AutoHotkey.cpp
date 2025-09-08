@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "application.h" // for MsgSleep()
 #include "window.h" // For MsgBox()
 #include "TextIO.h"
+#include "simple_threading.h"
 
 // General note:
 // The use of Sleep() should be avoided *anywhere* in the code.  Instead, call MsgSleep().
@@ -299,10 +300,14 @@ int MainExecuteScript(bool aMsgSleep)
 	}
 #endif
 
+	// Initialize simple threading system
+	g_SimpleThreading.IncrementThreadCount();
+	
 	// Activate the hotkeys, hotstrings, and any hooks that are required prior to executing the
 	// top part (the auto-execute part) of the script so that they will be in effect even if the
 	// top part is something that's very involved and requires user interaction:
 	Hotkey::ManifestAllHotkeysHotstringsHooks(); // We want these active now in case auto-execute never returns (e.g. loop)
+
 
 #ifndef _DEBUG
 	__try

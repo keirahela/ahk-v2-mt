@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "os_version.h" // For the global OS_Version object
 
 #include "Debugger.h"
+#include "simple_threading.h"
 
 extern HINSTANCE g_hInstance;
 extern DWORD g_MainThreadID;
@@ -91,6 +92,9 @@ extern BOOL g_AllowInterruption;
 extern int g_nLayersNeedingTimer;
 extern int g_nThreads;
 extern int g_nPausedThreads;
+
+// Simple threading system
+extern SimpleThreading g_SimpleThreading;
 extern int g_MaxHistoryKeys;
 extern DWORD g_InputTimeoutAt;
 

@@ -89,7 +89,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>wsock32.lib;winmm.lib;version.lib;comctl32.lib;psapi.lib;wininet.lib;shlwapi.lib;uxtheme.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;winmm.lib;version.lib;comctl32.lib;psapi.lib;wininet.lib;shlwapi.lib;uxtheme.lib;dwmapi.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <StackReserveSize>4194304</StackReserveSize>
       <TerminalServerAware Condition="!$(ConfigDll)">false</TerminalServerAware>
       <DataExecutionPrevention>false</DataExecutionPrevention>
@@ -132,7 +132,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader Condition="!$(ConfigDebug)">Use</PrecompiledHeader>
-      <AdditionalIncludeDirectories>$(ProjectDir)source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)source;$(ProjectDir)websocketpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
@@ -276,6 +276,10 @@
     <ClCompile Include="source\script_object_bif.cpp" />
     <ClCompile Include="source\script_registry.cpp" />
     <ClCompile Include="source\SimpleHeap.cpp" />
+    <ClCompile Include="source\simple_threading.cpp" />
+    <ClCompile Include="source\simple_threading_api.cpp" />
+    <ClCompile Include="source\websocket_api.cpp" />
+    <ClCompile Include="source\websocket_client.cpp" />
     <ClCompile Include="source\StringConv.cpp" />
     <ClCompile Include="source\TextIO.cpp" />
     <ClCompile Include="source\util.cpp" />

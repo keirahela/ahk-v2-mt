@@ -21,6 +21,8 @@ GNU General Public License for more details.
 #include "window.h" // for a lot of things
 #include "application.h" // for MsgSleep()
 #include "TextIO.h"
+#include "simple_threading_api.h"
+#include "websocket_api.h"
 
 #define NA MAX_FUNCTION_PARAMS
 #define BIFn(name, minp, maxp, bif, ...) {_T(#name), bif, minp, maxp, FID_##name, __VA_ARGS__}
@@ -133,10 +135,20 @@ FuncEntry g_BIF[] =
 	BIFn(StrUpper, 1, 1, BIF_StrCase),
 	BIF1(SubStr, 2, 3),
 	BIF1(Tan, 1, 1),
+	BIF1(HttpRequest, 2, 2),
+	BIF1(ThreadCount, 0, 0),
+	BIF1(ThreadCreate, 1, 1),
+	BIF1(ThreadDestroy, 1, 1),
+	BIF1(ThreadGetVar, 1, 1),
+	BIF1(ThreadSetVar, 2, 2),
 	BIFn(Trim, 1, 2, BIF_Trim),
 	BIF1(Type, 1, 1),
 	BIF1(VarSetStrCapacity, 1, 2, {1}),
 	BIF1(VerCompare, 2, 2),
+	BIF1(WebSocketConnect, 1, 1),
+	BIF1(WebSocketDisconnect, 0, 0),
+	BIF1(WebSocketReceive, 0, 0),
+	BIF1(WebSocketSend, 1, 1),
 	BIFn(WinActive, 0, 4, BIF_WinExistActive),
 	BIFn(WinExist, 0, 4, BIF_WinExistActive),
 };
